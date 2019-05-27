@@ -1,0 +1,83 @@
+@Library('utils') _
+
+// Take params from build with params.
+after = "develop"
+url = "https://github.com/Informasjonsforvaltning/fdk"
+ref = "heads/develop"
+
+node ('jenkins-maven'){
+  container("java-docker") {
+    String branch_name = "unknown"
+    String branch_ref = "unknown"
+    String global_ymd = '00001224_1200'
+    def after_short = after
+    String build_masterversion_location = ""
+    def ref_tokens = ref.tokenize( '/' )
+    if (ref_tokens.size() > 1) {
+      branch_ref = ref_tokens[ref_tokens.size() -2]
+    }
+    if (ref_tokens.size() > 0) {
+       branch_name = ref_tokens[ref_tokens.size()-1]
+       branch_ref = branch_ref + "/" + branch_name
+       echo "Branch name: ${branch_name}"
+       echo "Branch ref: ${branch_ref}"
+    }
+    if (ref_tokens.contains("tags")) {
+      currentBuild.displayName = "Tag ${branch_name} pushed."
+      echo "Was a tag push, nothing to do."
+      currentBuild.result = 'SUCCESS'
+      return
+    }
+    if (after == "0000000000000000000000000000000000000000") {
+      echo "Dont know what to do with this.  Is this a rebase? squash?  will exit cleanly."
+      currentBuild.result = 'SUCCESS'
+      return
+    }
+
+    currentBuild.displayName = "${currentBuild.number} - sonar: ${branch_name}"
+    //currentBuild.description = "fooDescription"
+
+    stage('Do Sonar on all') {
+      checkout ( [$class: 'GitSCM',
+          branches: [[name: after ]],
+          userRemoteConfigs: [[
+              credentialsId: 'systemjenkinsfdk',
+              url: url]]])
+
+      output = wrapper.script(script:'''#!/usr/bin/env bash
+set -e
+source ./buildCommands.sh
+for i in "${!BUILD_APPS[@]}"; do
+    echo "${BUILD_APPS[$i]} ${BUILD_CMD[$i]}"
+done
+''', returnStdout:true, stepName: "generate list of build targets")
+
+      lines = output.tokenize('\n')
+      def mikrotjenester_map = [:]
+      try {
+        withMaven(maven: 'M3') {
+          lines.each{ line ->
+            def line_tokens = line.split(' ')
+            def service = line_tokens[0]
+            def build_instructions = line_tokens.drop(1).join(' ')
+            if (build_instructions.startsWith("mvn")) {
+              sh build_instructions.tokenize('&')[0].trim() + " -DskipDocker"
+              withCredentials([string(credentialsId: 'fdk-sonar-token', variable: 'TOKEN')]) {
+                withSonarQubeEnv('fdk-sonar') {
+                  sh "cd applications/${service} && mvn clean install sonar:sonar -Dsonar.host.url=http://35.228.110.43 -Dsonar.login=$TOKEN"
+                }
+              }
+            }
+          }
+        }
+        slackSend   channel: '#jenkins',
+                    color: 'good',
+                    message: "Sonar just built on ${ref} sucessfully!"
+      } catch (e) {
+        slackSend   channel: '#jenkins',
+                    color: 'danger',
+                    message: "Sonar failed to build on ${ref}. <${currentBuild.absoluteUrl}|Link>"
+      }
+    } // stage: Calculate what to..
+  }
+}

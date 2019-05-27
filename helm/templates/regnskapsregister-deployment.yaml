@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    fdk.service: regnskapsregister
+  name: regnskapsregister
+  namespace: {{ required "Missing value NAMESPACE" .Values.NAMESPACE }}
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        fdk.service: regnskapsregister
+    spec:
+      containers:
+        image: {{ required "Missing value REGNSKAPSREGISTER_IMAGE" .Values.REGNSKAPSREGISTER_IMAGE }}
+        imagePullPolicy: Always
+        name: regnskapsregister
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: {{ required "Missing value RREG_REGNSKAPSREGISTER_MEMORY" .Values.RREG_REGNSKAPSREGISTER_MEMORY | quote }}
+      restartPolicy: Always
+status: {}

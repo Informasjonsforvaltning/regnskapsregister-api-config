@@ -1,0 +1,54 @@
+/*
+Rolls back to the previous version for a environment.
+
+This job figures out what was the previous version and then starts a normal deploy.
+
+Note that you can only rollback once.
+*/
+@Library('utils') _
+
+master_versions_location_base = """gs://fdk-infra-masterversions"""
+
+if (params.rollback_environment == "prod" && params.rollback_environment != params.prod_safeword) {
+  error("You need to type ${params.rollback_environment} in prod_safeword")
+  return
+}
+
+echo "Rolling back to previous version for env " + params.rollback_environment
+currentBuild.displayName = "${currentBuild.number} - ${params.rollback_environment}: Rollback"
+String masterversion = "unknown"
+node ('helm-kubectl'){
+  container('helm-gcloud-kubectl') {
+    stage('Get rollback version') {
+      def output = wrapper.script( stepName: "Getting rollback version",
+                      script: "gsutil ls ${master_versions_location_base}/deployed/${params.rollback_environment}/rollback",
+                      returnStdout: true)
+      def files = output.tokenize( '\n' )
+      if (files.size() == 1) {
+        echo "found: " + files[0]
+        def result = (files[0] =~ /^.*rollback\/(.+)\.yaml$/)
+        if (result) {
+          masterversion = result[0][1]
+          echo "found: " + masterversion
+        }
+      } else {
+        files.each{
+          echo it
+        }
+        error("Unable to rollback.  Not able to find a single rollbackversion.  Found: " + files.size())
+      }
+    }
+  }
+}
+
+stage("Notify slack") {
+  slackSend   channel: '#jenkins',
+              color: 'warning',
+              message: "Rollback started on ${params.rollback_environment} to version: ${masterversion}"
+}
+
+stage('Trigger deploy job') {
+    build job: 'deploy', parameters: [[$class: 'StringParameterValue', name: 'deploy_environment', value: params.rollback_environment],
+                                      [$class: 'StringParameterValue', name: 'masterversion', value: masterversion],
+                                      [$class: 'StringParameterValue', name: 'prod_safeword', value: params.prod_safeword]]
+}

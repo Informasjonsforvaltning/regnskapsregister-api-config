@@ -1,0 +1,352 @@
+@Library('utils') _
+
+// Take params from build with params.
+after = params.after
+before = params.before
+url = params.url
+ref = params.ref
+name = params.name
+force = params.force
+pull_request_url = params.pull_request_url
+
+echo "Rerun link: ${JOB_URL}parambuild/?ref=${ref}&after=${after}&before=${before}&pull_request_url=${pull_request_url}"
+
+def pr_status(def status, def sha, def text, def t_url, def context = "continuous-integration/jenkins") {
+    // status error, failure, pending, success
+    def pr_url = "https://api.github.com/repos/Informasjonsforvaltning/fdk/statuses/" + sha
+    def body = """{
+  "state": "$status",
+  "target_url": "$t_url",
+  "description": "$text",
+  "context": "$context"
+}"""
+    try {
+        httpRequest authentication: "jenkins-github", httpMode: 'POST', requestBody: body,  url: pr_url
+    } catch (e) {
+        echo "Failed updating status of " + sha
+    }
+}
+
+pr_status("pending", after, "Jenkins is considering what to do..", currentBuild.absoluteUrl)
+// Return a list with images that has changed files in the folder.
+// This is done by checking the folder hash against image tag.
+def check_all_images(def service_and_hashes) {
+  String script_all = ""
+  service_and_hashes.each{service, checksum ->
+    def command = "(gcloud container images describe eu.gcr.io/fdk-infra/${service}:${checksum} > /dev/null 2>&1) && echo '${service} ${checksum}' || echo '${service} YES' &"
+    script_all = script_all + command + "\n"
+  }
+  // All gcloud is spawned as separate process to speed things up, mostly network waiting.
+  // Therefore we need a wait step to wait for all requersts to be done
+  // function takes about 7-8 seconds now, compared to 4-5 seconds pr service (40+ seconds)
+  script_all = script_all + "wait\n"
+  def output = ""
+  container('helm-gcloud-kubectl') {
+    def output_inner = wrapper.script(script: script_all, stepName: "Check what images to build")
+    output = output_inner.trim()
+  }
+  def build_list = []
+  output.split('\n').each{ line ->
+    def service_build = line.split(' ')
+    if (service_build[1] == "YES") {
+      build_list.add(service_build[0])
+    } else {
+      echo "Service " + service_build[0]+ ":" + service_build[1] + " already exist in eu.gcr.io"
+    }
+  }
+  return build_list
+}
+
+def do_checksums(services) {
+  def services_checksums = [:]
+    checkout ( [$class: 'GitSCM',
+          branches: [[name: after ]],
+          userRemoteConfigs: [[
+              credentialsId: 'systemjenkinsfdk',
+              url: url]]])
+    services.each { app, value ->
+      checksum = wrapper.script (
+          script: "git ls-files applications/${app} | git hash-object --stdin-paths | git hash-object --stdin",
+          //script: "git log -n 1 --format=\"%h %aN %s %ad\" -- applications/${app}",
+          returnStdout: true,
+          stepName: "Calculate hash for ${app}"
+      ).split(" ")[0]
+      services_checksums[app] = checksum.trim()
+    }
+
+  return services_checksums
+}
+
+def get_version_timestamp(def sha_version) {
+  def git_time = wrapper.script (
+      script: "git show -s --format=%cI ${sha_version}",
+      returnStdout: true,
+      stepName: "Get timestamp for push"
+  ).trim()
+  return git_time.replace(":", "_").take(19).trim()
+}
+
+def get_git_shorthash(String hash) {
+  def git_shorthash = wrapper.script (
+      script: "git rev-parse --short ${hash}",
+      returnStdout: true,
+      stepName: "Get shorthash"
+  ).trim()
+  return git_shorthash
+}
+
+def service_to_template_name(service) {
+  String img_underscore = service.replaceAll('-','_')
+  String template_name = img_underscore.toUpperCase() + "_IMAGE"
+  return template_name
+}
+
+def get_values_images_text(checksums) {
+    def lines = []
+    checksums.each{ key, value ->
+        String line = service_to_template_name(key) + ": " + "eu.gcr.io/fdk-infra/${key}:" + value
+        lines.add(line)
+    }
+    lines.add("ES5_BUSY_IMAGE: busybox")
+    lines.add("ES5_IMAGE: docker.elastic.co/elasticsearch/elasticsearch:5.6.9")
+    lines.add("SSO_IMAGE: jboss/keycloak:6.0.1")
+    return lines.join("\n")
+}
+
+node ('helm-kubectl'){
+    def bygg_mikrotjenester = [:]
+    def checksums = [:]
+    def values_images_text = ""
+    String branch_name = "unknown"
+    String branch_ref = "unknown"
+    String global_ymd = '00001224_1200'
+    def after_short = after
+    String build_masterversion_location = ""
+    def ref_tokens = ref.tokenize( '/' )
+    if (ref_tokens.size() > 1) {
+      branch_ref = ref_tokens[ref_tokens.size() -2]
+    }
+    if (ref_tokens.size() > 0) {
+       branch_name = ref_tokens[ref_tokens.size()-1]
+       branch_ref = branch_ref + "/" + branch_name
+       echo "Branch name: ${branch_name}"
+       echo "Branch ref: ${branch_ref}"
+    }
+    if (ref_tokens.contains("tags")) {
+      currentBuild.displayName = "Tag ${branch_name} pushed."
+      echo "Was a tag push, nothing to do."
+      currentBuild.result = 'SUCCESS'
+      return
+    }
+    if (after == "0000000000000000000000000000000000000000") {
+      echo "Dont know what to do with this.  Is this a rebase? squash?  will exit cleanly."
+      currentBuild.result = 'SUCCESS'
+      return
+    }
+    if (name=="") {
+      wrap([$class: 'BuildUser']) {
+        name = BUILD_USER
+      }
+      echo "name set to: ${name}"
+    }
+    if (force) {
+      echo "Doing full rebuild."
+    }
+
+
+    currentBuild.displayName = "${currentBuild.number} - ${branch_name}"
+    //currentBuild.description = "fooDescription"
+
+    stage('Calculate what to build') {
+      checkout ( [$class: 'GitSCM',
+          branches: [[name: after ]],
+          userRemoteConfigs: [[
+              credentialsId: 'systemjenkinsfdk',
+              url: url]]])
+
+      output = wrapper.script(script:'''#!/usr/bin/env bash
+set -e
+source ./buildCommands.sh
+for i in "${!BUILD_APPS[@]}"; do
+    echo "${BUILD_APPS[$i]} ${BUILD_CMD[$i]}"
+done
+''', returnStdout:true, stepName: "generate list of build targets")
+
+      lines = output.tokenize('\n')
+      def mikrotjenester_map = [:]
+      lines.each{ line ->
+        def line_tokens = line.split(' ')
+        def service = line_tokens[0]
+        def build_instructions = line_tokens.drop(1).join(' ')
+        mikrotjenester_map[service] = build_instructions
+      }
+      after_short = get_git_shorthash(after)
+
+      checksums = do_checksums(mikrotjenester_map)
+      global_ymd = get_version_timestamp(after)
+
+      def images_to_build = []
+      if (force) {
+        echo "Forcing.."
+        checksums.each{service, checksum ->
+          images_to_build.add(service)
+        }
+      } else {
+        images_to_build = check_all_images(checksums)
+      }
+      images_to_build.each{service ->
+        echo "gonna build ${service}"
+        def compile = mikrotjenester_map[service]
+        def checksum = checksums[service]
+        bygg_mikrotjenester["Build ${service}"] = { buildProject(service, checksum, compile, branch_name) }
+      }
+
+      values_images_text = get_values_images_text(checksums)
+    } // stage: Calculate what to..
+
+    if (pull_request_url == "") {
+      stage('Check if PR duplicate') {
+        container('helm-gcloud-kubectl') {
+          withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
+            sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
+          }
+          def found = sh(returnStatus: true, script: "gsutil cp gs://fdk-infra-jenkins/pr/${after} .")
+          if (found==0) {
+            currentBuild.displayName = "duplicate - ${after}"
+            currentBuild.result = 'ABORTED'
+            error("This version is already beeing built from a PR webhook.  Aborting duplicate build")
+            return
+          } else {
+            echo "No PR data found this is not a duplicate (ignore previous file not found error)"
+          }
+        }
+      }
+
+    } else {
+      currentBuild.displayName = currentBuild.displayName + " [PR]"
+    }
+
+    stage('Build') {
+      if (bygg_mikrotjenester.size() > 0) {
+        try {
+          parallel bygg_mikrotjenester
+        } catch (e) {
+          slackSend   channel: '#jenkins',
+                      color: 'danger',
+                      message: "Branch: ${branch_name} (${after_short}) by ${name} failed to build. <${currentBuild.absoluteUrl}|Link>"
+          pr_status("failure", after, "Build failed!", currentBuild.absoluteUrl)
+          throw e
+        }
+      } else {
+        echo "No services to build, no services changed."
+      }
+    } // stage: Build
+
+
+    stage('create master version') {
+      String yearmonthdate = global_ymd
+      def build_number = currentBuild.number
+      String filename = "${build_number}_${yearmonthdate}-${after}.yaml"
+
+      writeFile file: "values_images.yaml", text: values_images_text
+      writeFile file: filename , text: values_images_text
+      archiveArtifacts artifacts: 'values_images.yaml', excludes: "no/**"
+      build_masterversion_location = "fdk-infra-masterversions/all/${filename}"
+      googleStorageUpload(credentialsId: "fdk-infra",
+                          bucket: "gs://fdk-infra-masterversions/all",
+                          pattern: filename)
+      if (branch_ref == 'heads/develop') {
+        build_masterversion_location = "fdk-infra-masterversions/develop/${filename}"
+        googleStorageUpload(credentialsId: "fdk-infra",
+                            bucket: "gs://fdk-infra-masterversions/develop",
+                            pattern: filename)
+      }
+    } // stage: master version
+
+    // TODO: maybe only need tagging for develop and master?
+    stage('Tag images') {
+      String yearmonthdate = global_ymd
+
+      def slack_msg = "<${BUILD_URL}|${currentBuild.displayName}> (${after_short}) by ${name} was just built in " + currentBuild.durationString
+
+      // its a pull request.
+      if (pull_request_url != "") {
+          build job: 'run-e2e', wait: false , parameters: [[$class: 'StringParameterValue', name: 'masterversion', value: after]]
+      }
+      if (branch_ref == 'heads/develop') {
+//        slack_msg = slack_msg + " - <${JENKINS_URL}job/deploy-scripts/job/deploy/parambuild/?masterversion=${after}|Deploy now> - btw, I already started deploying to ut1!"
+        slack_msg = slack_msg + " - Started deploying version to ut1!"
+        build job: 'deploy-scripts/autodeploy_from_development', wait: false , parameters: [[$class: 'StringParameterValue', name: 'after', value: after]]
+
+      } else {
+        slack_msg = slack_msg + " - <${JENKINS_URL}job/deploy-scripts/job/deploy/parambuild/?masterversion=${after}&deploy_environment=tmp|Deploy to tmp env> .  <https://storage.cloud.google.com/${build_masterversion_location}|View masterversion>"
+      }
+      slackSend   channel: '#jenkins',
+                  color: 'good',
+                  message: slack_msg
+      pr_status("success", after, "Build is ok!", currentBuild.absoluteUrl)
+      container('helm-gcloud-kubectl') {
+        withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
+          sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
+        }
+        checksums.each{ key, value ->
+          def commands = [
+          "gcloud -q container images add-tag eu.gcr.io/fdk-infra/${key}:${value} eu.gcr.io/fdk-infra/${key}:branch_${branch_name}_${yearmonthdate}",
+          "gcloud -q container images add-tag eu.gcr.io/fdk-infra/${key}:${value} eu.gcr.io/fdk-infra/${key}:branch_${branch_name}_latest"
+          ]
+
+          def tag_service = commands.join("\n")
+          wrapper.script(returnStatus: true, script: tag_service, stepName: "Tag ${key} with post build tags.")
+        }
+      }
+    } // stage: tag..
+}
+
+
+
+/*
+  Build a single microservice in the project and push it to image registry.
+
+  some special tagging will happen on branch name. (develop)
+*/
+def buildProject(String app, String checksum, String compile, String branch_name) {
+  node('jenkins-maven') {
+    stage('checkout') {
+        container('java-docker') {
+          checkout ( [$class: 'GitSCM',
+                branches: [[name: after ]],
+                userRemoteConfigs: [[
+                    credentialsId: 'systemjenkinsfdk',
+                    url: url]]])
+        }
+    }
+    stage("Build ${app}") {
+      if (compile.startsWith('mvn')){
+        container('java-docker') {
+            withMaven(maven: 'M3') {
+              // Hack, remove && ... step.
+              sh compile.tokenize('&')[0].trim()
+            }
+        } // container
+      } else {
+        container('java-docker') {
+          nodejs(nodeJSInstallationName: 'fdk-node') {
+            sh "npm config set unsafe-perm true"
+            echo "Gonna execute: ${compile}"
+            sh "(${compile})"
+          }
+        }
+      }
+    } // stage: build
+    stage("Push ${app} to registry") {
+      container('java-docker') {
+        docker.withRegistry('https://eu.gcr.io', 'gcr:fdk-infra') {
+          sh "docker tag dcatno/${app}:latest fdk-infra/${app}:${checksum}"
+          def customImage = docker.image("fdk-infra/${app}:${checksum}")
+          /* Push the container to the custom Registry */
+          customImage.push()
+        }
+      }
+    } // stage: push..
+  } // node
+}
