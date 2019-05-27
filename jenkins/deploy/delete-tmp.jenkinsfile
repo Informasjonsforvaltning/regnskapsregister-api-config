@@ -1,0 +1,48 @@
+/*
+Deletes a temporary enironment in the e2e cluster only!
+It does so by nuking the entire namespace.
+*/
+@Library('utils') _
+
+master_versions_location_base = """gs://fdk-infra-masterversions"""
+
+if (!params.tmp_env.startsWith("tmp") ) {
+  error("${params.tmp_env} is not a tmp environment.")
+  return
+}
+
+def sleep_time = 1
+if (params.delete_after_minutes.isNumber() && params.delete_after_minutes.toInteger() != 0) {
+  sleep_time = (params.delete_after_minutes.toInteger() * 60)
+}
+if (sleep_time < 0) {
+  echo "Negative sleep time, ignoring."
+  currentBuild.result = 'ABORTED'
+  return
+}
+
+currentBuild.displayName = "${currentBuild.number} - ${params.tmp_env}: Delete"
+def gcp_project_name = "fdk-e2e"
+// Long wait.
+echo "Will delete in ${params.delete_after_minutes} minutes."
+
+stage ('Wait') {
+  sleep (sleep_time)
+}
+stage ('Delete env') {
+  node('helm-kubectl') {
+    container('helm-gcloud-kubectl') {
+      withCredentials([file(credentialsId: "${gcp_project_name}-k8s", variable: 'SA')]) {
+        sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
+      }
+      sh(returnStatus: true,
+        script: """
+        gcloud config set project """ + gcp_project_name + """
+        gcloud container clusters get-credentials """ + gcp_project_name + """ --region europe-north1-a
+        gcloud config set compute/region europe-north1-a
+        gcloud config set compute/zone europe-north1
+        """)
+      sh returnStatus: true, script: "kubectl delete namespaces ${params.tmp_env}"
+    }
+  }
+}

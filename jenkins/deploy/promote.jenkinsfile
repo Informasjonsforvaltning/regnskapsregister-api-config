@@ -1,0 +1,59 @@
+@Library('utils') _
+
+master_versions_location_base = """gs://fdk-infra-masterversions"""
+
+echo "promoting env " + params.promote_environment
+currentBuild.displayName = "${currentBuild.number} - ${params.promote_environment}: Promote"
+String masterversion = "unknown"
+stage('Get env version') {
+  node ('helm-kubectl'){
+    container('helm-gcloud-kubectl') {
+
+      def output = wrapper.script( stepName: "Getting env version",
+                      script: "gsutil ls ${master_versions_location_base}/deployed/${promote_environment}/current",
+                      returnStdout: true)
+      def files = output.tokenize( '\n' )
+      if (files.size() == 1) {
+        echo "found: " + files[0]
+        def result = (files[0] =~ /^.*current\/(.+)\.yaml$/)
+        if (result) {
+          masterversion = result[0][1]
+          echo "found: " + masterversion
+        }
+      } else {
+        files.each{
+          echo it
+        }
+        error("Unable to promote.  Not able to find a single version.  Found: " + files.size())
+      }
+    }
+  }
+}
+
+def get_promote_env(def current) {
+    if (current == "it1") {
+        return "prod"
+    }
+    if (current == "st1") {
+        return "it1"
+    }
+    if (current == "ut1") {
+        return "st1"
+    }
+    error("Not able to promote this env.")
+    return ""
+}
+
+def promote_env = get_promote_env(params.promote_environment)
+
+stage("Notify slack") {
+  slackSend   channel: '#jenkins',
+              color: 'good',
+              message: "${params.promote_environment} - ${masterversion} is beeing promoted to ${promote_env}"
+}
+
+stage('Trigger deploy job') {
+    build job: 'deploy', parameters: [[$class: 'StringParameterValue', name: 'deploy_environment', value: promote_env],
+                                      [$class: 'StringParameterValue', name: 'masterversion', value: masterversion],
+                                      [$class: 'StringParameterValue', name: 'prod_safeword', value: params.prod_safeword]]
+}

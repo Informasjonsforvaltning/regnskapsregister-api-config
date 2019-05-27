@@ -1,0 +1,137 @@
+@Library('utils') _
+
+master_versions_location_base = """gs://fdk-infra-masterversions"""
+
+@NonCPS
+def should_delete(tag) {
+  if (tag == "") {
+    return true
+  }
+  def prod_tag = (tag ==~ /^.*prod.*$/)
+  if (prod_tag) {
+    return false
+  }
+
+  if (tag ==~ /^.*develop.*$/) {
+    return false
+  }
+  return true
+}
+
+def create_delete_script(def min_days, def folder, def append_script) {
+  def min_yearmonthdate = (new Date() - min_days).format( 'yyyy-MM-dd' )
+  def output = sh (returnStdout: true,
+                   script:"gsutil ls -l ${folder}").tokenize('\n')
+  def delete_script = append_script
+  output.each{line ->
+    if (!line.endsWith('/')) {  // dont add folders.
+      def line_list = line.tokenize(' ')
+      if (line_list.size() ==3) {
+        def bytes = line_list[0]
+        def date_time = line_list[1].take(10).trim()
+        def filename = line_list[2]
+        if (date_time < min_yearmonthdate) {
+          delete_script.add("gsutil rm ${filename} 2>/dev/null || true")
+        }
+      }
+    }
+  }
+  return delete_script
+}
+
+def ensure_deploy_and_rollback_versions_exist(def folder) {
+  sh (returnStatus: true,script:"gsutil cp ${folder}/current/* ${folder}")
+  sh (returnStatus: true,script:"gsutil cp ${folder}/rollback/* ${folder}")
+}
+
+node ('helm-kubectl'){
+  container('helm-gcloud-kubectl') {
+    stage('Init') {
+      withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
+        sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
+      }
+    }
+    def images
+    def yearmonthdate = (new Date() - 60).format( 'yyyy-MM-dd' )
+
+    stage('Getting images..') {
+      def base_image_url = "eu.gcr.io/fdk-infra"
+      echo "Going to delete versions older than ${yearmonthdate} that has not gone to prod."
+      images = sh (
+                      script: "gcloud container images list --repository=${base_image_url} | grep ${base_image_url}",
+                      returnStdout: true
+                      ).tokenize( '\n' )
+    } // stage: getting..
+    images.each{image ->
+      stage("Cleanup for ${image}") {
+//
+        def command = "gcloud container images list-tags ${image} --limit=999999 --sort-by=TIMESTAMP --filter='timestamp.datetime < ${yearmonthdate}' --format='table[no-heading](digest.basename(),tags)'"
+        echo command
+        def images_with_tags_str = sh (
+                        script: command,
+                        returnStdout: true
+                        ).tokenize( '\n' )
+        images_with_tags_str.each{ img_with_tag ->
+          def img_and_tag = img_with_tag.tokenize(' ')
+          def digest = img_and_tag[0]
+          def img_tags = ""
+          if (img_and_tag.size() > 1) {
+            img_tags = img_and_tag[1]
+          }
+          echo "digest: " + digest
+          echo "tag(s): " + img_tags
+          def del_img = should_delete(img_tags)
+
+          if (del_img) {
+            echo "Want to delete: ${image} with ${digest} with tags: ${img_tags}"
+            // TODO: hardening, dont delete if it is currently deployed somewhere. (other than prod)
+            def delete_command = "gcloud container images delete -q --force-delete-tags ${image}@${digest}"
+            sh returnStatus: true, script: delete_command
+          }
+        }
+      } // stage.
+    }
+
+    stage("cleanup masterversions"){
+
+      def min_days = 10
+      def folder_all = "${master_versions_location_base}/all"
+      wrapper.script(stepName: "Deleting old files in all..",
+                     script: create_delete_script(min_days, folder_all, []).join('\n'))
+
+
+      def min_days_dev = 15
+      def folder_dev = "${master_versions_location_base}/develop"
+      wrapper.script(stepName: "Deleting old files in all..",
+                     script: create_delete_script(min_days_dev, folder_dev, []).join('\n'))
+    }
+
+    stage("Clean up old deployed versions") {
+      def min_days = 7
+      def folder_deplyed_ut1 = "${master_versions_location_base}/deployed/ut1/*.yaml"
+      wrapper.script(stepName: "Deleting old files in all..",
+                     script: create_delete_script(min_days, folder_deplyed_ut1, []).join('\n'))
+      ensure_deploy_and_rollback_versions_exist("${master_versions_location_base}/deployed/ut1")
+
+      def min_days_st1 = 14
+      def folder_deplyed_st1 = "${master_versions_location_base}/deployed/st1/*.yaml"
+      wrapper.script(stepName: "Deleting old files in all..",
+                    script: create_delete_script(min_days_st1, folder_deplyed_st1, []).join('\n'))
+      ensure_deploy_and_rollback_versions_exist("${master_versions_location_base}/deployed/st1")
+
+      def min_days_it1 = 14
+      def folder_deplyed_it1 = "${master_versions_location_base}/deployed/it1/*.yaml"
+      wrapper.script(stepName: "Deleting old files in all..",
+                    script: create_delete_script(min_days_it1, folder_deplyed_it1, []).join('\n'))
+      ensure_deploy_and_rollback_versions_exist("${master_versions_location_base}/deployed/it1")
+      // PROD!!
+      /*
+      def min_days_prod = 365
+      def folder_deplyed_prod = "${master_versions_location_base}/deployed/prod/*.yaml"
+      wrapper.script(stepName: "Deleting old files in all..",
+                    script: create_delete_script(min_days, folder_deplyed_prod, []).join('\n'))
+      */
+      ensure_deploy_and_rollback_versions_exist("${master_versions_location_base}/deployed/prod")
+    }
+  } // container
+} // node
