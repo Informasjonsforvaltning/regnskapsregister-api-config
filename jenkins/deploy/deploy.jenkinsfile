@@ -18,7 +18,6 @@ def get_masterversion_location(def env) {
                       ,"st1": "${master_versions_location_base}/deployed/ut1"
                       ,"it1": "${master_versions_location_base}/deployed/st1"
                       ,"prod": "${master_versions_location_base}/deployed/it1"
-                      ,"demo": "${master_versions_location_base}/deployed/it1"
                       ]
   if (env_location.containsKey(env)) {
     return env_location[env]
@@ -32,27 +31,28 @@ def get_masterversion_location(def env) {
 
 def get_project_fom_env(def env){
   if (env=="prod") {
-    return "fdk-prod"
+    return "rreg-prod"
   } else if (env.startsWith("tmp")) {
-    return "fdk-e2e"
+    return "rreg-e2e"
   }
-  return "fdk-dev"
+  return "rreg-dev"
 }
+
 def get_host_from_env(def env) {
   if (env=="prod") {
     return "www.fellesdatakatalog.brreg.no"
   } else if (env.startsWith("tmp")) {
-    return "${env}-www.fellesdatakatalog.brreg.no"
+    return "${env}-rreg.fellesdatakatalog.brreg.no"
   }
-  return "www.${env}.fellesdatakatalog.brreg.no"
+  return "rreg.${env}.fellesdatakatalog.brreg.no"
 }
 def get_url_from_env(def env) {
   if (env=="prod") {
-    return "https://www.fellesdatakatalog.brreg.no/"
+    return "https://data.brreg.no/regnskapsregisteret"
   } else if (env.startsWith("tmp")) {
-    return "http://${ingress_ip} (Host: ${env}-www.fellesdatakatalog.brreg.no use ModHeader(chrome) to access.)"
+    return "http://${ingress_ip} (Host: ${env}-rreg.fellesdatakatalog.brreg.no use ModHeader(chrome) to access.)"
   }
-  return "https://www.${env}.fellesdatakatalog.brreg.no/"
+  return "https://rreg.${env}.fellesdatakatalog.brreg.no/"
 }
 
 def hash_to_masterversion(String sha) {
@@ -245,8 +245,8 @@ node ('helm-kubectl'){
         gcloud config set compute/region europe-north1-a
         gcloud config set compute/zone europe-north1
         """)
-      sh returnStatus: true, script: 'git clone https://github.com/Informasjonsforvaltning/fdk-config.git'
-      sh returnStatus: true, script: "helm template -f values_environment.yaml -f ${masterversion}.yaml fdk-config/helm/ > kubectlapply.yaml"
+      sh returnStatus: true, script: 'git clone https://github.com/Informasjonsforvaltning/regnskapsregister-api-config.git'
+      sh returnStatus: true, script: "helm template -f values_environment.yaml -f ${masterversion}.yaml regnskapsregister-api-config/helm/ > kubectlapply.yaml"
       sh returnStatus: true, script: 'cat kubectlapply.yaml'
     } // stage Authenticating wiht cluster
 
@@ -255,15 +255,10 @@ node ('helm-kubectl'){
         def yearmonthdate = (new Date()).format( 'yyyy-MM-dd-HHmm' )
 
         def backup_label = "${BUILD_ID}-" + yearmonthdate
+        //TODO: dette må gjøres om til å ta backup av mongodb-diskene i stedet
         def backupscript = """
             gcloud compute --project fdk-prod disks snapshot "fdk-prod-elasticsearch5" --snapshot-names "autogcs-autodeploy-prod-elasticsearch5-${backup_label}" --zone "europe-north1-a &"
-            gcloud compute --project fdk-prod disks snapshot "fdk-prod-fuseki" --snapshot-names "autogcs-autodeploy-prod-fuseki-${backup_label}" --zone "europe-north1-a &"
-            gcloud compute --project fdk-prod disks snapshot "fdk-prod-registration-api" --snapshot-names "autogcs-autodeploy-prod-registration-api-${backup_label}" --zone "europe-north1-a &"
-            gcloud compute --project fdk-prod disks snapshot "fdk-prod-reference-data" --snapshot-names "autogcs-autodeploy-prod-reference-data-${backup_label}" --zone "europe-north1-a &"
             wait
-            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-prod-elasticsearch5-${backup_label}" --labels="snapshotdays="14"" &
-            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-prod-fuseki-${backup_label}" --labels="snapshotdays="14"" &
-            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-prod-registration-api-${backup_label}" --labels="snapshotdays="14"" &
             gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-prod-reference-data-${backup_label}" --labels="snapshotdays="14"" &"""
             echo "Running: " + backupscript
 
@@ -294,7 +289,7 @@ node ('helm-kubectl'){
 
         def outputImagesToTag = wrapper.script (returnStdout: true,
                                                 script: "cat ${masterversion}.yaml | grep -o 'eu.gcr.io/fdk-infra.*'",
-                                                stepName: "Show fdk services only")
+                                                stepName: "Show regnskapsregisteret services only")
         def tag_commands = generate_tag_commands(outputImagesToTag, deploy_environment)
         tag_commands.add("wait")
         tag_script = tag_script + "\n" + tag_commands.join('\n')
