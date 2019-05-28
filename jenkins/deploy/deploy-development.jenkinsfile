@@ -27,16 +27,17 @@ def get_masterversion_location(selected_env) {
 
 def get_project_fom_env(def env){
   if (env=="prod") {
-    return "fdk-prod"
+    return "rreg-prod"
   }
-  return "fdk-dev"
+  return "rreg-dev"
 }
 
 def get_url_from_env(def env) {
   if (env=="prod") {
-    return "https://www.fellesdatakatalog.brreg.no/"
+    return "https://data.brreg.no/regnskapsregisteret"
   }
-  return "https://www.${env}.fellesdatakatalog.brreg.no/"
+  //TODO: bytt it med endelig verdig for utviklingsmiljøene. Dette er for test av script
+  return "https://rreg.${env}.fellesdatakatalog.brreg.no/"
 }
 
 def hash_to_masterversion(String sha) {
@@ -192,8 +193,8 @@ node ('helm-kubectl'){
         gcloud config set compute/region europe-north1-a
         gcloud config set compute/zone europe-north1
         """)
-      sh returnStatus: true, script: 'git clone https://github.com/Informasjonsforvaltning/fdk-config.git'
-      sh returnStatus: true, script: "helm template -f values_environment.yaml -f ${masterversion}.yaml fdk-config/helm/ > kubectlapply.yaml"
+      sh returnStatus: true, script: 'git clone https://github.com/Informasjonsforvaltning/regnskapsregister-api-config.git'
+      sh returnStatus: true, script: "helm template -f values_environment.yaml -f ${masterversion}.yaml regnskapsregister-api-config/helm/ > kubectlapply.yaml"
       sh returnStatus: true, script: 'cat kubectlapply.yaml'
     } // stage Authenticating wiht cluster
 
@@ -202,6 +203,7 @@ node ('helm-kubectl'){
         def yearmonthdate = (new Date()).format( 'yyyy-MM-dd-HHmm' )
 
         def backup_label = "${BUILD_ID}-" + yearmonthdate
+        //Todo: endre til backup av mongodb-diskene i stedet
         def backupscript = """
             gcloud compute --project fdk-prod disks snapshot "fdk-prod-elasticsearch5" --snapshot-names "autogcs-autodeploy-prod-elasticsearch5-${backup_label}" --zone "europe-north1-a &"
             gcloud compute --project fdk-prod disks snapshot "fdk-prod-fuseki" --snapshot-names "autogcs-autodeploy-prod-fuseki-${backup_label}" --zone "europe-north1-a &"
@@ -240,7 +242,7 @@ node ('helm-kubectl'){
 
       def outputImagesToTag = wrapper.script (returnStdout: true,
                                               script: "cat ${masterversion}.yaml | grep -o 'eu.gcr.io/fdk-infra.*'",
-                                              stepName: "Show fdk services only")
+                                              stepName: "Show regnskapsregisteret services only")
       def tag_commands = generate_tag_commands(outputImagesToTag, deploy_environment)
       tag_commands.add("wait")
       tag_script = tag_script + "\n" + tag_commands.join('\n')

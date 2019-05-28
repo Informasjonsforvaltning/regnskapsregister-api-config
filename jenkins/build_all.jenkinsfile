@@ -13,7 +13,7 @@ echo "Rerun link: ${JOB_URL}parambuild/?ref=${ref}&after=${after}&before=${befor
 
 def pr_status(def status, def sha, def text, def t_url, def context = "continuous-integration/jenkins") {
     // status error, failure, pending, success
-    def pr_url = "https://api.github.com/repos/Informasjonsforvaltning/fdk/statuses/" + sha
+    def pr_url = "https://api.github.com/repos/Informasjonsforvaltning/regnskapsregister-api/statuses/" + sha
     def body = """{
   "state": "$status",
   "target_url": "$t_url",
@@ -107,9 +107,7 @@ def get_values_images_text(checksums) {
         String line = service_to_template_name(key) + ": " + "eu.gcr.io/fdk-infra/${key}:" + value
         lines.add(line)
     }
-    lines.add("ES5_BUSY_IMAGE: busybox")
-    lines.add("ES5_IMAGE: docker.elastic.co/elasticsearch/elasticsearch:5.6.9")
-    lines.add("SSO_IMAGE: jboss/keycloak:6.0.1")
+    lines.add("MONGODB_IMAGE: mongo:latest")
     return lines.join("\n")
 }
 
