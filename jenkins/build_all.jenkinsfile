@@ -253,7 +253,8 @@ done
       googleStorageUpload(credentialsId: "fdk-infra",
                           bucket: "gs://fdk-infra-masterversions/all",
                           pattern: filename)
-      if (branch_ref == 'heads/develop') {
+      //todo: endre til branch_ref == 'heads/develop' etter testing
+      if (branch_ref == 'bjg/trigger-build-process') {
         build_masterversion_location = "fdk-infra-masterversions/develop/${filename}"
         googleStorageUpload(credentialsId: "fdk-infra",
                             bucket: "gs://fdk-infra-masterversions/develop",
