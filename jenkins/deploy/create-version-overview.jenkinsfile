@@ -1,6 +1,6 @@
 @Library('utils') _
 
-master_versions_location_base = """gs://fdk-infra-masterversions"""
+master_versions_location_base = """gs://rreg-infra-masterversions"""
 
 node ('helm-kubectl'){
   container('helm-gcloud-kubectl') {
