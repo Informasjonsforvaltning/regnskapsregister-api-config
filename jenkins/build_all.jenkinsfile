@@ -339,9 +339,8 @@ def buildProject(String app, String checksum, String compile, String branch_name
     stage("Push ${app} to registry") {
       container('java-docker') {
         docker.withRegistry('https://eu.gcr.io', 'gcr:fdk-infra') {
-            //todo: oppdsater emd ordentlig imagenavn
-            //sh "docker tag dcatno/${app}:latest fdk-infra/${app}:${checksum}"
-            sh "docker tag regnskap/test:latest fdk-infra/${app}:${checksum}"
+            sh "docker tag brreg/${app}:latest fdk-infra/${app}:${checksum}"
+            //sh "docker tag regnskap/test:latest fdk-infra/${app}:${checksum}"
           def customImage = docker.image("fdk-infra/${app}:${checksum}")
           /* Push the container to the custom Registry */
           customImage.push()
