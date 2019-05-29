@@ -5,7 +5,7 @@
 
 def masterversion = "unknown"
 def deploy_environment = "unknown"
-master_versions_location_base = """gs://fdk-infra-masterversions"""
+master_versions_location_base = """gs://rreg-infra-masterversions"""
 
 if (params.deploy_environment == "prod" && params.deploy_environment != params.prod_safeword) {
   error("You need to type ${params.deploy_environment} in prod_safeword")
