@@ -3,8 +3,8 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    fdk.service: regnskapsregister
-  name: regnskapsregister
+    fdk.service: regnskapsregister-api
+  name: regnskapsregister-api
   namespace: {{ required "Missing value NAMESPACE" .Values.NAMESPACE }}
 spec:
   replicas: 1
@@ -13,12 +13,12 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        fdk.service: regnskapsregister
+        fdk.service: regnskapsregister-api
     spec:
       containers:
-        image: {{ required "Missing value REGNSKAPSREGISTER-API_IMAGE" .Values.REGNSKAPSREGISTER_IMAGE }}
+        image: {{ required "Missing value REGNSKAPSREGISTER-API_IMAGE" .Values.REGNSKAPSREGISTER-API_IMAGE }}
         imagePullPolicy: Always
-        name: regnskapsregister
+        name: regnskapsregister-api
         ports:
         - containerPort: 8080
         resources:
