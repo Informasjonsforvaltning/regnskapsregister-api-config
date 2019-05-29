@@ -265,13 +265,14 @@ done
     stage('Tag images') {
       String yearmonthdate = global_ymd
 
-      def slack_msg = "<${BUILD_URL}|${currentBuild.displayName}> (${after_short}) by ${name} on Regnskapsregisteret was just built in " + currentBuild.durationString
+      def slack_msg = "<${BUILD_URL}|${currentBuild.displayName}> (${after_short}) by ${name} branch_ref ${branch_ref} on Regnskapsregisteret was just built in " + currentBuild.durationString
 
       // its a pull request.
       if (pull_request_url != "") {
-          build job: 'run-e2e', wait: false , parameters: [[$class: 'StringParameterValue', name: 'masterversion', value: after]]
+          build job: 'run-e2e', wait: false, parameters: [[$class: 'StringParameterValue', name: 'masterversion', value: after]]
       }
-      if (branch_ref == 'heads/develop') {
+      //todo: reset after testing: ranch_ref == 'heads/develop'
+      if (branch_ref == 'heads/chore/bjg/trigger-build-process') {
 //        slack_msg = slack_msg + " - <${JENKINS_URL}job/deploy-scripts/job/deploy/parambuild/?masterversion=${after}|Deploy now> - btw, I already started deploying to ut1!"
         slack_msg = slack_msg + " - Started deploying Regnskapsregisteret version to ut1!"
         build job: 'rreg-deploy-scripts/rreg_autodeploy_from_development', wait: false , parameters: [[$class: 'StringParameterValue', name: 'after', value: after]]
