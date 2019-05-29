@@ -266,7 +266,7 @@ done
     stage('Tag images') {
       String yearmonthdate = global_ymd
 
-      def slack_msg = "<${BUILD_URL}|${currentBuild.displayName}> (${after_short}) by ${name} branch_ref ${branch_ref} on Regnskapsregisteret was just built in " + currentBuild.durationString
+      def slack_msg = "<${BUILD_URL}|${currentBuild.displayName}> (${after_short}) by ${name} on Regnskapsregisteret was just built in " + currentBuild.durationString
 
       // its a pull request.
       if (pull_request_url != "") {
