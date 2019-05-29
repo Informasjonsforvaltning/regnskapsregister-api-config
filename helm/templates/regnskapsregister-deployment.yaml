@@ -16,13 +16,13 @@ spec:
         fdk.service: regnskapsregister
     spec:
       containers:
-        image: {{ required "Missing value REGNSKAPSREGISTER_IMAGE" .Values.REGNSKAPSREGISTER_IMAGE }}
+        image: {{ required "Missing value REGNSKAPSREGISTER-API_IMAGE" .Values.REGNSKAPSREGISTER_IMAGE }}
         imagePullPolicy: Always
         name: regnskapsregister
         ports:
         - containerPort: 8080
         resources:
           requests:
-            memory: {{ required "Missing value RREG_REGNSKAPSREGISTER_MEMORY" .Values.RREG_REGNSKAPSREGISTER_MEMORY | quote }}
+            memory: {{ required "Missing value RREG_REGNSKAPSREGISTER-API_MEMORY" .Values.RREG_REGNSKAPSREGISTER-API_MEMORY | quote }}
       restartPolicy: Always
 status: {}

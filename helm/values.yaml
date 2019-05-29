@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 ##regnskapsregister (api)
-RREG_REGNSKAPSREGISTER_MEMORY: "1500Mi"
+RREG_REGNSKAPSREGISTER-API_MEMORY: "1500Mi"
 
 ##mongodb
 RREG_MONGODB_MEMORY: "1000Mi"
