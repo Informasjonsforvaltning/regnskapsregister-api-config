@@ -263,7 +263,7 @@ node ('helm-kubectl'){
       def run_url = get_url_from_env(deploy_environment)
       slackSend   channel: '#jenkins',
                   color: '#7f7fff',
-                  message: "${deploy_environment}: ${user_trigger} deployed new version: ${masterversion}- url: ${run_url}"
+                  message: "${deploy_environment}: ${user_trigger} RREG-deploy-development deployed new version: ${masterversion}- url: ${run_url}"
     }
     stage("Generate env version files") {
       build job: 'create-version-overview', wait: false

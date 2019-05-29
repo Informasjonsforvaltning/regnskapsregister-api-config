@@ -370,7 +370,7 @@ except Exception as e:
       def run_url = get_url_from_env(deploy_environment)
       slackSend   channel: '#jenkins-env',
                   color: '#7f7fff',
-                  message: "${deploy_environment}: ${user_trigger} deployed new version: ${masterversion}- url: ${run_url} (status: ${env_status})"
+                  message: "${deploy_environment}: ${user_trigger} deployed new version of Regnskapsregister API: ${masterversion}- url: ${run_url} (status: ${env_status})"
       if (tmp_env) {
         if (params.tmp_env_delete_minutes != "-1") {
           def delete_in_minutes = "60"
