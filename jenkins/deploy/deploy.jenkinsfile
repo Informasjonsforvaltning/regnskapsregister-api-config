@@ -386,7 +386,7 @@ except Exception as e:
       }
     }
     stage("Generate env version files") {
-      build job: 'create-version-overview', wait: false
+      build job: 'rreg-deploy-scripts/rreg-create-version-overview', wait: false
     }
   }
 }
