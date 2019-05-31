@@ -1,0 +1,24 @@
+{{ if (.Values.RREG_INGRESSROUTER) and .Values.RREG_INGRESSROUTER "true" }}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: {{ required "Missing value RREG_INGRESSNAME" .Values.RREG_INGRESSNAME }}
+  namespace: {{ required "Missing value NAMESPACE" .Values.NAMESPACE }}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    kubernetes.io/ingress.global-static-ip-name: {{ required "Missing value RREG_INGRESS_IP_NAME" .Values.RREG_INGRESS_IP_NAME }}
+    ingress.gcp.kubernetes.io/pre-shared-cert: {{ required "Missing value RREG_ALL_CERT_NAMES" .Values.RREG_ALL_CERT_NAMES | quote }}
+spec:
+  rules:
+  - host: {{ required "Missing value SVC" .Values.RREG_INGRESS_HOSTNAME_SVC }}
+    http:
+      paths:
+      - path: /*
+        backend:
+          serviceName: nginx-registration
+          servicePort: 8080
+  tls:
+  - hosts:
+    - {{ required "Missing value RREG_INGRESS_HOSTNAME_SVC" .Values.RREG_INGRESS_HOSTNAME_SVC }}
+    secretName: {{ required "Missing value RREG_CERT_NAME_BASE" .Values.RREG_CERT_NAME_BASE }}
+{{ else }} {{ end }}
