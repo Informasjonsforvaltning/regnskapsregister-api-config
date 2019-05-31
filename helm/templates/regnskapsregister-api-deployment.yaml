@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: regnskapsregister-api
-        image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE | quote }}
+        image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE }}
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
