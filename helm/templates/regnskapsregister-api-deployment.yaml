@@ -16,7 +16,7 @@ spec:
         fdk.service: regnskapsregister-api
     spec:
       containers:
-        name: regnskapsregister-api
+      - name: regnskapsregister-api
         image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE }}
         imagePullPolicy: Always
         ports:

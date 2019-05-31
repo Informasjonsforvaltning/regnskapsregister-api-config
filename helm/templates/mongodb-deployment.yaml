@@ -16,7 +16,7 @@ spec:
         fdk.service: mongodb
     spec:
       containers:
-        image: {{ required "Missing value MONGODB_IMAGE" .Values.MONGODB_IMAGE }}
+      - image: {{ required "Missing value MONGODB_IMAGE" .Values.MONGODB_IMAGE }}
         imagePullPolicy: Always
         name: mongodb
         ports:
