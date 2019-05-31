@@ -17,12 +17,12 @@ spec:
     spec:
       containers:
       - name: regnskapsregister-api
-        image: {{ required "Missing value REGNSKAPSREGISTER-API_IMAGE" .Values.REGNSKAPSREGISTER-API_IMAGE | quote }}
+        image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE | quote }}
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
         resources:
           requests:
-            memory: {{ required "Missing value RREG_REGNSKAPSREGISTER-API_MEMORY" .Values.RREG_REGNSKAPSREGISTER-API_MEMORY | quote }}
+            memory: {{ required "Missing value RREG_REGNSKAPSREGISTER_API_MEMORY" .Values.RREG_REGNSKAPSREGISTER_API_MEMORY | quote }}
       restartPolicy: Always
 status: {}
