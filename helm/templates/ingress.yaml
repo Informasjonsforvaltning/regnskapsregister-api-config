@@ -15,7 +15,7 @@ spec:
       paths:
       - path: /*
         backend:
-          serviceName: nginx-registration
+          serviceName: regnskapsregister-api
           servicePort: 8080
   tls:
   - hosts:
