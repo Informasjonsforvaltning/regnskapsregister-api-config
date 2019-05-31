@@ -208,7 +208,7 @@ done
           withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
             sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
           }
-          def found = sh(returnStatus: true, script: "gsutil cp gs://fdk-infra-jenkins/pr/${after} .")
+          def found = sh(returnStatus: true, script: "gsutil cp gs://rreg-infra-jenkins/pr/${after} .")
           if (found==0) {
             currentBuild.displayName = "duplicate - ${after}"
             currentBuild.result = 'ABORTED'
@@ -249,15 +249,15 @@ done
       writeFile file: "values_images.yaml", text: values_images_text
       writeFile file: filename , text: values_images_text
       archiveArtifacts artifacts: 'values_images.yaml', excludes: "no/**"
-      build_masterversion_location = "fdk-infra-masterversions/all/${filename}"
+      build_masterversion_location = "rreg-infra-masterversions/all/${filename}"
       googleStorageUpload(credentialsId: "fdk-infra",
-                          bucket: "gs://fdk-infra-masterversions/all",
+                          bucket: "gs://rreg-infra-masterversions/all",
                           pattern: filename)
       //todo: endre til branch_ref == 'heads/develop' etter testing
       if (branch_ref == 'bjg/trigger-build-process') {
-        build_masterversion_location = "fdk-infra-masterversions/develop/${filename}"
+        build_masterversion_location = "rreg-infra-masterversions/develop/${filename}"
         googleStorageUpload(credentialsId: "fdk-infra",
-                            bucket: "gs://fdk-infra-masterversions/develop",
+                            bucket: "gs://rreg-infra-masterversions/develop",
                             pattern: filename)
       }
     } // stage: master version

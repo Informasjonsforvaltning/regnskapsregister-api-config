@@ -40,7 +40,7 @@ def get_project_fom_env(def env){
 
 def get_host_from_env(def env) {
   if (env=="prod") {
-    return "www.fellesdatakatalog.brreg.no"
+    return "data.brreg.no"
   } else if (env.startsWith("tmp")) {
     return "${env}-rreg.fellesdatakatalog.brreg.no"
   }
