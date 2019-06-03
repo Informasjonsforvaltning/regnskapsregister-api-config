@@ -67,8 +67,8 @@ def do_checksums(services) {
     services.each { app, value ->
       checksum = wrapper.script (
           //do hash on root as this project has only one application, and no applications directory
-          script: "git ls-files applications/${app} | git hash-object --stdin-paths | git hash-object --stdin",
-          //script: "git ls-files . | git hash-object --stdin-paths | git hash-object --stdin",
+          //script: "git ls-files applications/${app} | git hash-object --stdin-paths | git hash-object --stdin",
+          script: "git ls-files . | git hash-object --stdin-paths | git hash-object --stdin",
           //script: "git log -n 1 --format=\"%h %aN %s %ad\" -- applications/${app}",
           returnStdout: true,
           stepName: "Calculate hash for ${app}"
