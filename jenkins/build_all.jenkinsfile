@@ -66,8 +66,9 @@ def do_checksums(services) {
               url: url]]])
     services.each { app, value ->
       checksum = wrapper.script (
-          //do hash on root as this project has only one application, and no applicataions directory
-          script: "git ls-files . | git hash-object --stdin-paths | git hash-object --stdin",
+          //do hash on root as this project has only one application, and no applications directory
+          script: "git ls-files applications/${app} | git hash-object --stdin-paths | git hash-object --stdin",
+          //script: "git ls-files . | git hash-object --stdin-paths | git hash-object --stdin",
           //script: "git log -n 1 --format=\"%h %aN %s %ad\" -- applications/${app}",
           returnStdout: true,
           stepName: "Calculate hash for ${app}"
@@ -342,8 +343,7 @@ def buildProject(String app, String checksum, String compile, String branch_name
     stage("Push ${app} to registry") {
       container('java-docker') {
         docker.withRegistry('https://eu.gcr.io', 'gcr:fdk-infra') {
-            sh "docker tag brreg/regnskapsregister-api:latest fdk-infra/${app}:${checksum}"
-            //sh "docker tag brreg/${app}:latest fdk-infra/${app}:${checksum}"
+            sh "docker tag brreg/${app}:latest fdk-infra/${app}:${checksum}"
             //sh "docker tag regnskap/test:latest fdk-infra/${app}:${checksum}"
           def customImage = docker.image("fdk-infra/${app}:${checksum}")
           /* Push the container to the custom Registry */
