@@ -7,7 +7,6 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
     kubernetes.io/ingress.global-static-ip-name: {{ required "Missing value RREG_INGRESS_IP_NAME" .Values.RREG_INGRESS_IP_NAME }}
-    ingress.gcp.kubernetes.io/pre-shared-cert: {{ required "Missing value RREG_ALL_CERT_NAMES" .Values.RREG_ALL_CERT_NAMES | quote }}
 spec:
   rules:
   - host: {{ required "Missing value SVC" .Values.RREG_INGRESS_HOSTNAME_SVC }}
@@ -17,8 +16,4 @@ spec:
         backend:
           serviceName: regnskapsregister-api
           servicePort: 8080
-  tls:
-  - hosts:
-    - {{ required "Missing value RREG_INGRESS_HOSTNAME_SVC" .Values.RREG_INGRESS_HOSTNAME_SVC }}
-    secretName: {{ required "Missing value RREG_CERT_NAME_BASE" .Values.RREG_CERT_NAME_BASE }}
 {{ else }} {{ end }}
