@@ -16,18 +16,18 @@ spec:
         fdk.service: regnskapsregister-api
     spec:
       containers:
-       - env:
-         - name: RRAPI_MONGO_USERNAME
-           value: {{ required "Missing value RRAPI_MONGO_USERNAME" .Values.RRAPI_MONGO_USERNAME }}
-         - name: RRAPI_MONGO_PASSWORD
-           value: {{ required "Missing value RRAPI_MONGO_PASSWORD" .Values.RRAPI_MONGO_PASSWORD }}
-         name: regnskapsregister-api
-         image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE }}
-         imagePullPolicy: Always
-         ports:
-         - containerPort: 8080
-         resources:
-           requests:
-             memory: {{ required "Missing value RREG_REGNSKAPSREGISTER_API_MEMORY" .Values.RREG_REGNSKAPSREGISTER_API_MEMORY | quote }}
-       restartPolicy: Always
+      - env:
+        - name: RRAPI_MONGO_USERNAME
+          value: {{ required "Missing value RRAPI_MONGO_USERNAME" .Values.RRAPI_MONGO_USERNAME }}
+        - name: RRAPI_MONGO_PASSWORD
+          value: {{ required "Missing value RRAPI_MONGO_PASSWORD" .Values.RRAPI_MONGO_PASSWORD }}
+        name: regnskapsregister-api
+        image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE }}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: {{ required "Missing value RREG_REGNSKAPSREGISTER_API_MEMORY" .Values.RREG_REGNSKAPSREGISTER_API_MEMORY | quote }}
+      restartPolicy: Always
 status: {}
