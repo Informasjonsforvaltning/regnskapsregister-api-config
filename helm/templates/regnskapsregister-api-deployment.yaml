@@ -16,7 +16,12 @@ spec:
         fdk.service: regnskapsregister-api
     spec:
       containers:
-      - name: regnskapsregister-api
+       - env:
+        - name: RRAPI_MONGO_USERNAME
+          value: {{ required "Missing value RRAPI_MONGO_USERNAME" .Values.RRAPI_MONGO_USERNAME }}
+        - name: RRAPI_MONGO_PASSWORD
+          value: {{ required "Missing value RRAPI_MONGO_PASSWORD" .Values.RRAPI_MONGO_PASSWORD }}
+        name: regnskapsregister-api
         image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE }}
         imagePullPolicy: Always
         ports:

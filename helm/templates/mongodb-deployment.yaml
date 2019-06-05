@@ -16,7 +16,12 @@ spec:
         fdk.service: mongodb
     spec:
       containers:
-      - image: {{ required "Missing value MONGODB_IMAGE" .Values.MONGODB_IMAGE }}
+      - env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: {{ required "Missing value RRAPI_MONGO_USERNAME" .Values.RRAPI_MONGO_USERNAME }}
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: {{ required "Missing value RRAPI_MONGO_PASSWORD" .Values.RRAPI_MONGO_PASSWORD }}
+        image: {{ required "Missing value MONGODB_IMAGE" .Values.MONGODB_IMAGE }}
         imagePullPolicy: Always
         name: mongodb
         ports:
