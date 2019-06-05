@@ -29,5 +29,17 @@ spec:
         resources:
           requests:
             memory: {{ required "Missing value RREG_REGNSKAPSREGISTER_API_MEMORY" .Values.RREG_REGNSKAPSREGISTER_API_MEMORY | quote }}
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
       restartPolicy: Always
 status: {}
