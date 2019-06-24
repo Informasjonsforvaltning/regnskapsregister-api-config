@@ -21,6 +21,16 @@ spec:
           value: {{ required "Missing value RRAPI_MONGO_USERNAME" .Values.RRAPI_MONGO_USERNAME }}
         - name: RRAPI_MONGO_PASSWORD
           value: {{ required "Missing value RRAPI_MONGO_PASSWORD" .Values.RRAPI_MONGO_PASSWORD }}
+        - name: RRAPI_SFTP_SERVER
+          value: {{ required "Missing value RREG_RRAPI_SFTP_SERVER" .Values.RREG_RRAPI_SFTP_SERVER | quote}}
+        - name: RRAPI_SFTP_USER
+          value: {{ required "Missing value RREG_RRAPI_SFTP_USER" .Values.RREG_RRAPI_SFTP_USER | quote}}
+        - name: RRAPI_SFTP_PASSWORD
+          value: {{ required "Missing value RREG_RRAPI_SFTP_PASSWORD" .Values.RREG_RRAPI_SFTP_PASSWORD | quote}}
+        - name: RRAPI_SFTP_PORT
+          value: {{ required "Missing value RREG_RRAPI_SFTP_PORT" .Values.RREG_RRAPI_SFTP_PORT | quote}}
+        - name: RRAPI_SFTP_DIRECTORY
+          value: {{ required "Missing value RREG_RRAPI_SFTP_DIRECTORY" .Values.RREG_RRAPI_SFTP_DIRECTORY | quote}}
         name: regnskapsregister-api
         image: {{ required "Missing value REGNSKAPSREGISTER_API_IMAGE" .Values.REGNSKAPSREGISTER_API_IMAGE }}
         imagePullPolicy: Always
