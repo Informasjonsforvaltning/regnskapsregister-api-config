@@ -15,9 +15,7 @@ if (params.deploy_environment == "prod" && params.deploy_environment != params.p
 
 def get_masterversion_location(def env) {
   def env_location = [ "ut1": "${master_versions_location_base}/develop"
-                      ,"st1": "${master_versions_location_base}/deployed/ut1"
-                      ,"it1": "${master_versions_location_base}/deployed/st1"
-                      ,"prod": "${master_versions_location_base}/deployed/it1"
+                      ,"prod": "${master_versions_location_base}/deployed/ut1"
                       ]
   if (env_location.containsKey(env)) {
     return env_location[env]
@@ -42,17 +40,17 @@ def get_host_from_env(def env) {
   if (env=="prod") {
     return "data.brreg.no"
   } else if (env.startsWith("tmp")) {
-    return "${env}-rreg.fellesdatakatalog.brreg.no"
+    return "rreg.${env}.rreg-dev.brreg.no"
   }
-  return "rreg.${env}.fellesdatakatalog.brreg.no"
+  return "rreg.${env}.rreg-dev.brreg.no"
 }
 def get_url_from_env(def env) {
   if (env=="prod") {
     return "https://data.brreg.no/regnskapsregisteret"
   } else if (env.startsWith("tmp")) {
-    return "http://${ingress_ip} (Host: ${env}-rreg.fellesdatakatalog.brreg.no use ModHeader(chrome) to access.)"
+    return "http://${ingress_ip} (Host: rreg.${env}.rreg-dev.brreg.no use ModHeader(chrome) to access.)"
   }
-  return "https://rreg.${env}.fellesdatakatalog.brreg.no/"
+  return "http://rreg.${env}.rreg-dev.brreg.no/"
 }
 
 def hash_to_masterversion(String sha) {
@@ -121,7 +119,7 @@ def wait_for_env_to_become_running(def ns, def max_wait_seconds) {
 
 stage('Getting versions and environment') {
   if ("${params.deploy_environment}" == "") {
-    error("No valid enironment selected, gonna fail the deploy.")
+    error("No valid environment selected, gonna fail the deploy.")
   } else {
     // global scope
     deploy_environment = params.deploy_environment
@@ -221,7 +219,7 @@ node ('helm-kubectl'){
       withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
         sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
       }
-      // Copy the masrterversion to this jenkins node. Altså copy it to deployed and current folder for this env,
+      // Copy the masrterversion to this jenkins node. Also copy it to deployed and current folder for this env
       sh returnStatus: true, script: "gsutil cp ${master_versions_location}/${masterversion}.yaml ."
     } // stage: tag version
 
@@ -257,9 +255,11 @@ node ('helm-kubectl'){
         def backup_label = "${BUILD_ID}-" + yearmonthdate
         //TODO: dette må gjøres om til å ta backup av mongodb-diskene i stedet
         def backupscript = """
-            gcloud compute --project fdk-prod disks snapshot "fdk-prod-elasticsearch5" --snapshot-names "autogcs-autodeploy-prod-elasticsearch5-${backup_label}" --zone "europe-north1-a &"
+            gcloud compute --project fdk-prod disks snapshot "rreg-prod-mongodb-bkp" --snapshot-names "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --zone "europe-north1-a" &
+            gcloud compute --project fdk-prod disks snapshot "rreg-prod-mongodb-db" --snapshot-names "autogcs-autodeploy-rreg-prod-mongodb-db-${backup_label}" --zone "europe-north1-a" &
             wait
-            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-prod-reference-data-${backup_label}" --labels="snapshotdays="14"" &"""
+            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --labels="snapshotdays="14"" &
+            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --labels="snapshotdays="14"" &"""
             echo "Running: " + backupscript
 
             wrapper.script(stepName: "Backup prod.",
