@@ -255,11 +255,11 @@ node ('helm-kubectl'){
         def backup_label = "${BUILD_ID}-" + yearmonthdate
         //TODO: dette må gjøres om til å ta backup av mongodb-diskene i stedet
         def backupscript = """
-            gcloud compute --project fdk-prod disks snapshot "rreg-prod-mongodb-bkp" --snapshot-names "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --zone "europe-north1-a" &
-            gcloud compute --project fdk-prod disks snapshot "rreg-prod-mongodb-db" --snapshot-names "autogcs-autodeploy-rreg-prod-mongodb-db-${backup_label}" --zone "europe-north1-a" &
+            gcloud compute --project rreg-prod disks snapshot "rreg-prod-mongodb-bkp" --snapshot-names "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --zone "europe-north1-a" &
+            gcloud compute --project rreg-prod disks snapshot "rreg-prod-mongodb-db" --snapshot-names "autogcs-autodeploy-rreg-prod-mongodb-db-${backup_label}" --zone "europe-north1-a" &
             wait
-            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --labels="snapshotdays="14"" &
-            gcloud compute --project fdk-prod snapshots add-labels "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --labels="snapshotdays="14"" &"""
+            gcloud compute --project rreg-prod snapshots add-labels "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --labels="snapshotdays="14"" &
+            gcloud compute --project rreg-prod snapshots add-labels "autogcs-autodeploy-rreg-prod-mongodb-bkp-${backup_label}" --labels="snapshotdays="14"" &"""
             echo "Running: " + backupscript
 
             wrapper.script(stepName: "Backup prod.",
