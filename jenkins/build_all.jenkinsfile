@@ -341,15 +341,13 @@ def buildProject(String app, String checksum, String compile, String branch_name
       }
     } // stage: build
     stage("Push ${app} to registry") {
-      container('java-docker') {
-        docker.withRegistry('https://eu.gcr.io', 'gcr:fdk-infra') {
-            sh "docker tag brreg/${app}:latest fdk-infra/${app}:${checksum}"
-            //sh "docker tag regnskap/test:latest fdk-infra/${app}:${checksum}"
-          def customImage = docker.image("fdk-infra/${app}:${checksum}")
-          /* Push the container to the custom Registry */
-          customImage.push()
+        container('cloud-sdk') {
+            withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
+                sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
+            }
+            sh "docker tag brreg/${app}:latest eu.gcr.io/fdk-infra/${app}:${checksum}"
+            sh "docker push eu.gcr.io/fdk-infra/${app}:${checksum}"
         }
-      }
     } // stage: push..
   } // node
 }
