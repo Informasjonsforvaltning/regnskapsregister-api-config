@@ -8,12 +8,7 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
     kubernetes.io/ingress.global-static-ip-name: {{ required "Missing value RREG_INGRESS_IP_NAME" .Values.RREG_INGRESS_IP_NAME }}
 spec:
-  rules:
-  - host: {{ required "Missing value SVC" .Values.RREG_INGRESS_HOSTNAME_SVC }}
-    http:
-      paths:
-      - path: /*
-        backend:
-          serviceName: regnskapsregister-api
-          servicePort: 8080
+  backend:
+    serviceName: regnskapsregister-api
+    servicePort: 8080
 {{ else }} {{ end }}
