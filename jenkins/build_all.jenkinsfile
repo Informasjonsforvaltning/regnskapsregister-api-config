@@ -244,24 +244,24 @@ done
 
 
     stage('create master version') {
-      String yearmonthdate = global_ymd
-      def build_number = currentBuild.number
-      String filename = "${build_number}_${yearmonthdate}-${after}.yaml"
+        container('helm-gcloud-kubectl') {
+            withCredentials([file(credentialsId: 'fdk-infra-file', variable: 'SA')]) {
+                sh returnStatus: true, script: 'gcloud auth activate-service-account --key-file $SA'
+            }
+            String yearmonthdate = global_ymd
+            def build_number = currentBuild.number
+            String filename = "${build_number}_${yearmonthdate}-${after}.yaml"
 
-      writeFile file: "values_images.yaml", text: values_images_text
-      writeFile file: filename , text: values_images_text
-      archiveArtifacts artifacts: 'values_images.yaml', excludes: "no/**"
-      build_masterversion_location = "rreg-infra-masterversions/all/${filename}"
-      googleStorageUpload(credentialsId: "fdk-infra",
-                          bucket: "gs://rreg-infra-masterversions/all",
-                          pattern: filename)
-      ///Testbranch: branch_ref == 'bjg/trigger-build-2'
-      if (branch_ref == 'heads/develop') {
-        build_masterversion_location = "rreg-infra-masterversions/develop/${filename}"
-        googleStorageUpload(credentialsId: "fdk-infra",
-                            bucket: "gs://rreg-infra-masterversions/develop",
-                            pattern: filename)
-      }
+            writeFile file: 'values_images.yaml', text: values_images_text
+            writeFile file: filename , text: values_images_text
+            archiveArtifacts artifacts: 'values_images.yaml', excludes: 'no/**'
+            build_masterversion_location = "rreg-infra-masterversions/all/${filename}"
+            sh "gsutil cp ${filename} gs://${build_masterversion_location}"
+            if (branch_ref == "heads/develop") {
+                build_masterversion_location = "rreg-infra-masterversions/develop/${filename}"
+                sh "gsutil cp ${filename} gs://${build_masterversion_location}"
+            }
+        }
     } // stage: master version
 
     // TODO: maybe only need tagging for develop and master?
