@@ -109,7 +109,6 @@ def get_values_images_text(checksums) {
         String line = service_to_template_name(key) + ": " + "eu.gcr.io/fdk-infra/${key}:" + value
         lines.add(line)
     }
-    lines.add("MONGODB_IMAGE: mongo:latest")
     return lines.join("\n")
 }
 

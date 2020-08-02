@@ -203,7 +203,6 @@ node ('helm-kubectl'){
         def yearmonthdate = (new Date()).format( 'yyyy-MM-dd-HHmm' )
 
         def backup_label = "${BUILD_ID}-" + yearmonthdate
-        //Todo: endre til backup av mongodb-diskene i stedet
         def backupscript = """
             gcloud compute --project fdk-prod disks snapshot "fdk-prod-elasticsearch5" --snapshot-names "autogcs-autodeploy-prod-elasticsearch5-${backup_label}" --zone "europe-north1-a &"
             gcloud compute --project fdk-prod disks snapshot "fdk-prod-fuseki" --snapshot-names "autogcs-autodeploy-prod-fuseki-${backup_label}" --zone "europe-north1-a &"
